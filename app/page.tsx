@@ -1,6 +1,8 @@
 'use client';
 
 import { useEffect, useState } from 'react';
+import { getResearchPapers, type ResearchPaper } from '../lib/research';
+import { getPortfolioContent, type CmsProject, type CmsCertificate, type CmsJourney } from '../lib/portfolio';
 
 type Mode = 'build' | 'question' | 'explore';
 
@@ -86,17 +88,8 @@ const projects = [
 // The archive is intentionally empty until original work is ready to share.
 // Add verified papers here later; never represent research ideas as publications.
 type ResearchCategory = 'Independent Research' | 'Academic Research / Coursework' | 'Published Research';
-type ResearchTopic = 'International Relations & Diplomacy' | 'Public Policy & Development' | 'AI Governance & Digital Rights';
+type ResearchTopic = 'International Relations & Diplomacy' | 'Public Policy & Development' | 'AI Governance & Digital Rights' | 'History, Conflict & Displacement' | 'Public Policy & Human Rights' | 'Society, Identity & Culture' | 'Other';
 type ResearchFormat = 'Research Paper' | 'Policy Brief' | 'Analytical Essay' | 'Opinion / Commentary';
-type ResearchPaper = {
-  title: string;
-  summary: string;
-  category: ResearchCategory;
-  topic: ResearchTopic;
-  format: ResearchFormat;
-  url: string;
-};
-const researchPapers: ResearchPaper[] = [];
 const researchCategories: ResearchCategory[] = [
   'Independent Research',
   'Academic Research / Coursework',
@@ -106,6 +99,10 @@ const researchTopics: ResearchTopic[] = [
   'International Relations & Diplomacy',
   'Public Policy & Development',
   'AI Governance & Digital Rights',
+  'History, Conflict & Displacement',
+  'Public Policy & Human Rights',
+  'Society, Identity & Culture',
+  'Other',
 ];
 const researchFormats: ResearchFormat[] = [
   'Research Paper', 'Policy Brief', 'Analytical Essay', 'Opinion / Commentary',
@@ -141,6 +138,22 @@ const researchIdeas: {
 ];
 
 function ProjectVisual({ art }: { art: string }) {
+  if (art === 'cms') {
+    return (
+      <div className="visual visual-commerce" aria-hidden="true"
+        style={{
+          display: 'grid',
+          placeItems: 'center',
+          background: 'radial-gradient(circle at 35% 25%, #65348e, #24172f 65%, #14101d)'
+        }}>
+        <span style={{
+          fontSize: 'clamp(5rem, 11vw, 9rem)',
+          color: '#c8ff83',
+          textShadow: '0 0 55px #c765ff'
+        }}>✳</span>
+      </div>
+    );
+  }
   if (art === 'eco') {
     return (
       <div className="visual visual-eco" aria-hidden="true">
@@ -242,8 +255,29 @@ export default function Home() {
   const [researchCategory, setResearchCategory] = useState<ResearchCategory>('Independent Research');
   const [researchTopic, setResearchTopic] = useState<ResearchTopic | 'All Research'>('All Research');
   const [researchSearch, setResearchSearch] = useState('');
+  const [researchPapers, setResearchPapers] = useState<ResearchPaper[]>([]);
+  const [cmsProjects, setCmsProjects] = useState<CmsProject[]>([]);
+  const [cmsCertificates, setCmsCertificates] = useState<CmsCertificate[]>([]);
+  const [cmsJourney, setCmsJourney] = useState<CmsJourney[]>([]);
   const [scheduledStartReached, setScheduledStartReached] = useState(false);
   const active = modes[mode];
+  /* STUTI CMS PORTFOLIO INTEGRATION */
+  const allProjects = [
+    ...projects,
+    ...cmsProjects
+      .filter((item) => item.title && !projects.some(
+        (old) => old.name.toLowerCase() === item.title.trim().toLowerCase()
+      ))
+      .map((item, index) => ({
+        number: String(projects.length + index + 1).padStart(2, '0'),
+        name: item.title,
+        category: (item.category || 'PROJECT').toUpperCase(),
+        description: item.description || '',
+        tags: [item.category || 'PROJECT'],
+        art: 'cms',
+        codeUrl: item.liveUrl || item.githubUrl || '',
+      })),
+  ];
   const query = researchSearch.trim().toLowerCase();
   const visiblePapers = researchPapers.filter((paper) =>
     paper.category === researchCategory &&
@@ -254,6 +288,35 @@ export default function Home() {
     (researchTopic === 'All Research' || idea.topic === researchTopic) &&
     (!query || `${idea.title} ${idea.question} ${idea.topic}`.toLowerCase().includes(query))
   );
+
+  useEffect(() => {
+    let active = true;
+
+    getResearchPapers()
+      .then((papers) => {
+        if (active) setResearchPapers(papers);
+      })
+      .catch((error) => {
+        console.error('Research loading failed:', error);
+      });
+
+    return () => {
+      active = false;
+    };
+  }, []);
+
+  useEffect(() => {
+    let mounted = true;
+    getPortfolioContent()
+      .then((data) => {
+        if (!mounted) return;
+        setCmsProjects(data.projects || []);
+        setCmsCertificates(data.certificates || []);
+        setCmsJourney(data.journey || []);
+      })
+      .catch((error) => console.error('Portfolio CMS loading failed:', error));
+    return () => { mounted = false; };
+  }, []);
 
   // Compare against the scheduled joining date in Delhi time.
   // This only changes the date label; it never assumes joining was confirmed.
@@ -375,6 +438,15 @@ export default function Home() {
               <div style={{ fontSize: '0.75rem', letterSpacing: '0.16em', color: '#d9b5ff', fontWeight: 800, marginBottom: '1.3rem' }}>03 / GROW</div>
               <a href="#journey" onClick={() => setMenuOpen(false)} style={{ display: 'block', fontSize: 'clamp(2.5rem, 5vw, 4.6rem)', fontWeight: 900, letterSpacing: '-0.07em', lineHeight: 1.15 }}>JOURNEY ↗</a>
               <a href="#about" onClick={() => setMenuOpen(false)} style={{ display: 'block', marginTop: '1.2rem', color: '#d8cadf' }}>About Me ↗</a>
+                <a href="#certificates"
+                  onClick={() => setMenuOpen(false)}
+                  style={{
+                    display: 'block',
+                    marginTop: '1.2rem',
+                    color: '#d8cadf'
+                  }}>
+                  Certificates ↗
+                </a>
             </div>
           </div>
           <div style={{ borderTop: '1px solid #685476', marginTop: 'clamp(3rem, 8vh, 5rem)', paddingTop: '1.5rem', display: 'flex', flexWrap: 'wrap', justifyContent: 'space-between', gap: '1.5rem', fontSize: '0.85rem' }}>
@@ -509,7 +581,7 @@ export default function Home() {
         </div>
 
         <div className="project-grid">
-          {projects.map((project) => (
+          {allProjects.map((project) => (
             <article
               className={`project-card project-${project.art}`}
               key={project.number}
@@ -531,11 +603,11 @@ export default function Home() {
                     <span key={tag}>{tag}</span>
                   ))}
                 </div>
-                <a
+                {project.codeUrl && (<a
                   href={project.codeUrl}
                   target="_blank"
                   rel="noopener noreferrer"
-                  aria-label={project.art === 'eleve' ? 'Visit Eleve Media live website' : `View ${project.name} source code on GitHub`}
+                  aria-label={project.art === 'eleve' ? 'Visit Eleve Media live website' : project.art === 'cms' ? `Open ${project.name} project link` : `View ${project.name} source code on GitHub`}
                   style={{
                     display: 'inline-flex',
                     alignItems: 'center',
@@ -550,8 +622,8 @@ export default function Home() {
                     letterSpacing: '0.08em',
                   }}
                 >
-                  {project.art === 'eleve' ? 'LIVE WEBSITE' : 'VIEW CODE'} <span aria-hidden="true">↗</span>
-                </a>
+                  {project.art === 'eleve' ? 'LIVE WEBSITE' : project.art === 'cms' ? 'VIEW PROJECT' : 'VIEW CODE'} <span aria-hidden="true">↗</span>
+                </a>)}
               </div>
             </article>
           ))}
@@ -820,9 +892,168 @@ export default function Home() {
             </div>
           </article>
         </div>
+
+        {/* CMS JOURNEY ENTRIES */}
+        {cmsJourney.length > 0 && (
+          <div style={{ marginTop: '2.2rem' }}>
+            <h3 style={{
+              fontSize: '1.4rem',
+              marginBottom: '1rem',
+              letterSpacing: '-0.04em'
+            }}>
+              NEW MILESTONES <span style={{ color: '#7650a9' }}>✳</span>
+            </h3>
+            <div style={{
+              display: 'grid',
+              gridTemplateColumns: 'repeat(auto-fit, minmax(min(100%, 260px), 1fr))',
+              gap: '0.8rem'
+            }}>
+              {cmsJourney.map((entry) => (
+                <article key={entry._id} style={{
+                  padding: '1.45rem',
+                  border: '1px solid #b5a4c5',
+                  borderRadius: '0.85rem',
+                  background: '#f7f1fb'
+                }}>
+                  <div style={{
+                    fontSize: '0.7rem',
+                    fontWeight: 800,
+                    color: '#7650a9'
+                  }}>
+                    {(entry.category || 'JOURNEY').toUpperCase()}
+                  </div>
+                  {entry.imageUrl && (
+                    <img src={entry.imageUrl}
+                      alt={entry.organization || entry.title}
+                      style={{
+                        width: '100%',
+                        maxHeight: '150px',
+                        objectFit: 'contain',
+                        marginTop: '1rem'
+                      }} />
+                  )}
+                  <h4 style={{ margin: '1rem 0 0.4rem', fontSize: '1.2rem' }}>
+                    {entry.title}
+                  </h4>
+                  {entry.organization && <p>{entry.organization}</p>}
+                  {(entry.startDate || entry.endDate || entry.current) && (
+                    <p style={{ fontSize: '0.78rem', color: '#7650a9' }}>
+                      {entry.startDate || ''}
+                      {entry.endDate
+                        ? ` — ${entry.endDate}`
+                        : entry.current ? ' — Ongoing' : ''}
+                    </p>
+                  )}
+                  {entry.description && (
+                    <p style={{ lineHeight: 1.6 }}>{entry.description}</p>
+                  )}
+                  {entry.link && (
+                    <a href={entry.link} target="_blank"
+                      rel="noopener noreferrer"
+                      style={{ color: '#7650a9', fontWeight: 800 }}>
+                      VIEW DETAILS ↗
+                    </a>
+                  )}
+                </article>
+              ))}
+            </div>
+          </div>
+        )}
       </section>
 
       {/* RESEARCH ARCHIVE — IDEAS, NOT CLAIMED PUBLICATIONS */}
+      {/* SANITY CERTIFICATES */}
+      <section id="certificates" aria-labelledby="certificates-title"
+        style={{
+          padding: 'clamp(3.5rem, 7vw, 6rem) 6%',
+          background: '#17131f',
+          color: '#f8f4ff',
+          scrollMarginTop: '1.5rem'
+        }}>
+        <div style={{
+          display: 'flex',
+          justifyContent: 'space-between',
+          gap: '1rem',
+          flexWrap: 'wrap',
+          fontSize: '0.73rem',
+          fontWeight: 800,
+          letterSpacing: '0.13em',
+          color: '#c8ff83'
+        }}>
+          <span>SKILLS / CERTIFICATES</span>
+          <span>ALWAYS LEARNING ✳</span>
+        </div>
+        <h2 id="certificates-title" style={{
+          fontSize: 'clamp(2.5rem, 6vw, 5.5rem)',
+          fontWeight: 900,
+          letterSpacing: '-0.07em',
+          lineHeight: 1,
+          margin: '2rem 0 1.5rem'
+        }}>
+          PROOF OF <span style={{ color: '#d9b5ff' }}>PROGRESS.</span>
+        </h2>
+        {cmsCertificates.length ? (
+          <div style={{
+            display: 'grid',
+            gridTemplateColumns: 'repeat(auto-fit, minmax(min(100%, 260px), 1fr))',
+            gap: '1rem'
+          }}>
+            {cmsCertificates.map((certificate) => (
+              <article key={certificate._id} style={{
+                background: '#211a2b',
+                border: '1px solid #52445f',
+                borderRadius: '1rem',
+                padding: '1.5rem'
+              }}>
+                {certificate.imageUrl && (
+                  <img src={certificate.imageUrl}
+                    alt={certificate.title}
+                    style={{
+                      width: '100%',
+                      maxHeight: '210px',
+                      objectFit: 'contain',
+                      borderRadius: '0.5rem',
+                      marginBottom: '1rem'
+                    }} />
+                )}
+                <div style={{
+                  color: '#c8ff83',
+                  fontSize: '0.72rem',
+                  fontWeight: 800
+                }}>
+                  {(certificate.category || 'CERTIFICATE').toUpperCase()}
+                  {certificate.date ? ` / ${certificate.date}` : ''}
+                </div>
+                <h3 style={{ fontSize: '1.3rem', margin: '0.9rem 0 0.5rem' }}>
+                  {certificate.title}
+                </h3>
+                {certificate.issuer && (
+                  <p style={{ color: '#d9b5ff', fontWeight: 700 }}>
+                    {certificate.issuer}
+                  </p>
+                )}
+                {certificate.description && (
+                  <p style={{ color: '#d0c5dc', lineHeight: 1.6 }}>
+                    {certificate.description}
+                  </p>
+                )}
+                {(certificate.credentialUrl || certificate.pdfUrl) && (
+                  <a href={certificate.credentialUrl || certificate.pdfUrl}
+                    target="_blank" rel="noopener noreferrer"
+                    style={{ color: '#c8ff83', fontWeight: 800 }}>
+                    VIEW CERTIFICATE ↗
+                  </a>
+                )}
+              </article>
+            ))}
+          </div>
+        ) : (
+          <p style={{ color: '#cfc5d9', lineHeight: 1.7 }}>
+            Certificates will appear here when I add them to my archive.
+          </p>
+        )}
+      </section>
+
       <section className="research-section" id="research">
         <div className="section-rule">
           <span>03 / THE THINKING ROOM</span>
